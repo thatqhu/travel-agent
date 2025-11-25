@@ -1,0 +1,25 @@
+version: '3.8'
+
+services:
+  backend:
+    build: ./backend
+    container_name: travel_backend
+    command: tail -f /dev/null #for dev only uvicorn main:app --host 0.0.0.0 --port 8000 --reload
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./backend:/app
+    environment:
+      - DASHSCOPE_API_KEY=${DASHSCOPE_API_KEY} # 记得在宿主机设置环境变量或创建 .env 文件
+      - TAVILY_API_KEY=${TAVILY_API_KEY}
+
+  frontend:
+    build: ./frontend
+    container_name: travel_frontend
+    command: tail -f /dev/null # for dev only
+    ports:
+      - "5173:5173"
+    volumes:
+      - ./frontend:/app
+    environment:
+      - VITE_API_URL=http://localhost:8000

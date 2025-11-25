@@ -1,0 +1,77 @@
+<script setup>
+import { ref } from 'vue'
+
+const inputMsg = ref('')
+const chatHistory = ref([])
+const isProcessing = ref(false)
+
+const sendMessage = async () => {
+  if (!inputMsg.value) return
+
+  // 添加用户消息
+  chatHistory.value.push({ role: 'user', content: inputMsg.value })
+  const userMsg = inputMsg.value
+  inputMsg.value = ''
+  isProcessing.value = true
+
+  // 创建一个空的 AI 回复框
+  const aiMsgIndex = chatHistory.value.push({ role: 'ai', content: '' }) - 1
+
+  // 建立 SSE 连接
+  const eventSource = new EventSource(`http://localhost:8000/chat/stream?message=${encodeURIComponent(userMsg)}`)
+
+  eventSource.onmessage = (event) => {
+    if (event.data === '[DONE]') {
+      eventSource.close()
+      isProcessing.value = false
+      return
+    }
+
+    const data = JSON.parse(event.data)
+
+    if (data.type === 'token') {
+      // 简单的文本累加
+      chatHistory.value[aiMsgIndex].content += data.content
+    } else if (data.type === 'tool') {
+      // 可选：显示工具调用状态
+      chatHistory.value[aiMsgIndex].content += `\n[System: ${data.content}]\n`
+    }
+  }
+
+  eventSource.onerror = () => {
+    eventSource.close()
+    isProcessing.value = false
+    chatHistory.value[aiMsgIndex].content += '\n[Connection Error]'
+  }
+}
+</script>
+
+<template>
+  <div class="container">
+    <div class="chat-window">
+      <div v-for="(msg, index) in chatHistory" :key="index" :class="['message', msg.role]">
+        <div class="bubble">
+          <span style="white-space: pre-wrap;">{{ msg.content }}</span>
+        </div>
+      </div>
+    </div>
+    <div class="input-area">
+      <input v-model="inputMsg" @keyup.enter="sendMessage" :disabled="isProcessing" placeholder="帮我定去东京的酒店并安排行程..." />
+      <button @click="sendMessage" :disabled="isProcessing">发送</button>
+    </div>
+  </div>
+</template>
+
+<style scoped>
+/* 简单样式，确保能看清 */
+.container { max-width: 800px; margin: 0 auto; display: flex; flex-direction: column; height: 90vh; }
+.chat-window { flex: 1; overflow-y: auto; padding: 20px; border: 1px solid #ccc; margin-bottom: 10px; }
+.message { margin-bottom: 10px; display: flex; }
+.message.user { justify-content: flex-end; }
+.message.ai { justify-content: flex-start; }
+.bubble { padding: 10px 15px; border-radius: 10px; max-width: 70%; }
+.user .bubble { background: #007bff; color: white; }
+.ai .bubble { background: #f1f1f1; color: black; }
+.input-area { display: flex; gap: 10px; }
+input { flex: 1; padding: 10px; }
+</style>
