@@ -20,9 +20,8 @@ app.add_middleware(
 @app.get("/chat/stream")
 async def chat_stream(message: str):
     async def event_generator():
-        try:
-            # 发送开始信号
-            yield f"data: {json.dumps({'type': 'start', 'content': '开始制定旅行计划...'}, ensure_ascii=False)}\n\n"
+        # 发送开始信号
+            yield f"data: {json.dumps({'type': 'start', 'content': '开始制定旅行计划...'})}\n\n"
 
             async for event in travel_graph.astream_events(
                 {"messages": [("user", message)]},
@@ -32,8 +31,8 @@ async def chat_stream(message: str):
                 kind = event["event"]
 
                 # 捕获LLM思考过程
-                if kind == "on_chat_model_stream":
-                    content = event["data"]["chunk"].content
+                if kind == "on_chain_stream" and event["name"] != "supervisor" and event["name"] != "langGraph":
+                    content = event["data"]["chunk"]["update"][-1].content
                     if content:
                         yield f"data: {json.dumps({'type': 'token', 'content': content}, ensure_ascii=False)}\n\n"
 
@@ -64,9 +63,5 @@ async def chat_stream(message: str):
 
             # 发送完成信号
             yield f"data: {json.dumps({'type': 'done', 'content': '旅行计划制定完成！'}, ensure_ascii=False)}\n\n"
-
-        except Exception as e:
-            error_msg = f"发生错误: {str(e)}"
-            yield f"data: {json.dumps({'type': 'error', 'content': error_msg}, ensure_ascii=False)}\n\n"
 
     return StreamingResponse(event_generator(), media_type="text/event-stream")

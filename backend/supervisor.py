@@ -24,8 +24,7 @@ class TravelState(MessagesState):
     next: str
 
 itinerary_searcher = create_agent(
-    llm,
-    tools=[TavilySearchResults(max_results=3)]
+    llm
 )
 
 
@@ -50,7 +49,7 @@ def call_itinerary_team(state: TravelState) -> Command[Literal["supervisor"]]:
         "你是行程设计师，负责设计完整的每日行程，包括交通、餐饮和预算规划。用专业且友好的语气, 简短总结一下."
     )
     messages = [{"role": "system", "content": system_prompt}] + state["messages"]
-    response = itinerary_searcher.invoke(messages)
+    response = itinerary_searcher.invoke({"messages": messages})
 
     return Command(
         update={
@@ -68,9 +67,7 @@ def generate_final_plan(state: TravelState) -> Command[Literal["__end__"]]:
     """生成最终旅行计划"""
     messages = [
         {"role": "system", "content":
-         "你是专业的旅行顾问。根据酒店团队和行程团队的工作结果，整合生成一份完整、详细的旅行计划。"
-         "包含：\n1. 旅行概览\n2. 推荐酒店（含理由）\n3. 每日详细行程\n4. 预算估算\n5. 实用建议"
-         "\n用清晰的格式和友好的语气呈现。"},
+         "你是专业的旅行顾问。根据酒店团队和行程团队的工作结果，整合生成一份简短的旅行计划。用清晰的格式和友好的语气呈现."},
     ] + state["messages"]
 
     response = llm.invoke(messages)
@@ -97,8 +94,8 @@ def top_supervisor(state: TravelState) -> Command:
     messages = [
         {"role": "system", "content":
          "你是旅行规划总监。协调 hotel_team(酒店搜索) 和 itinerary_team(行程规划)。"
-         "工作流程：1. 先让hotel_team搜索酒店 2. 然后让itinerary_team规划行程 "
-         "3. 最后调用final_plan整合生成完整计划 4. 返回FINISH结束。"},
+         "工作流程：1. 先让hotel_team搜索酒店. 2. 然后让itinerary_team规划行程. "
+         "3. 最后调用final_plan整合生成完整计划. 4. 没有结束返回json格式数据, 示例: {'next': 'hotel_team'}. 5. 返回FINISH结束。"},
     ] + state["messages"]
 
     response = llm.with_structured_output(Router).invoke(messages)
