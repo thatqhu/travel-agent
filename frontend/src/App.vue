@@ -21,12 +21,6 @@ const sendMessage = async () => {
   const eventSource = new EventSource(`http://localhost:8000/chat/stream?message=${encodeURIComponent(userMsg)}`)
 
   eventSource.onmessage = (event) => {
-    if (event.data === '[DONE]') {
-      eventSource.close()
-      isProcessing.value = false
-      return
-    }
-
     const data = JSON.parse(event.data)
 
     if (data.type === 'token') {
@@ -35,6 +29,12 @@ const sendMessage = async () => {
     } else if (data.type === 'tool') {
       // 可选：显示工具调用状态
       chatHistory.value[aiMsgIndex].content += `\n[System: ${data.content}]\n`
+    }else if (data.type === 'done') {
+      // 可选：显示工具调用状态
+      chatHistory.value[aiMsgIndex].content += `\n[System: ${data.content}]\n`
+      eventSource.close()
+      isProcessing.value = false
+      return
     }
   }
 

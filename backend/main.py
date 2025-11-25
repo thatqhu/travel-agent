@@ -21,7 +21,7 @@ app.add_middleware(
 async def chat_stream(message: str):
     async def event_generator():
         # 发送开始信号
-            yield f"data: {json.dumps({'type': 'start', 'content': '开始制定旅行计划...'})}\n\n"
+            yield f"data: {json.dumps({'type': 'token', 'content': '开始制定旅行计划...'})}\n\n"
 
             async for event in travel_graph.astream_events(
                 {"messages": [("user", message)]},
@@ -31,8 +31,8 @@ async def chat_stream(message: str):
                 kind = event["event"]
 
                 # 捕获LLM思考过程
-                if kind == "on_chain_stream" and event["name"] != "supervisor" and event["name"] != "langGraph":
-                    content = event["data"]["chunk"]["update"][-1].content
+                if kind == "on_chain_stream" and event["name"] != "supervisor" and event["name"] != "LangGraph":
+                    content = event["data"]["chunk"].update["messages"][-1].content
                     if content:
                         yield f"data: {json.dumps({'type': 'token', 'content': content}, ensure_ascii=False)}\n\n"
 
@@ -40,11 +40,11 @@ async def chat_stream(message: str):
                 elif kind == "on_chain_start":
                     name = event.get("name", "")
                     if "hotel" in name.lower():
-                        yield f"data: {json.dumps({'type': 'status', 'content': '🏨 正在搜索和评估酒店...'}, ensure_ascii=False)}\n\n"
+                        yield f"data: {json.dumps({'type': 'tool', 'content': '🏨 正在搜索和评估酒店...'}, ensure_ascii=False)}\n\n"
                     elif "itinerary" in name.lower() or "attraction" in name.lower():
-                        yield f"data: {json.dumps({'type': 'status', 'content': '📍 正在规划景点和行程...'}, ensure_ascii=False)}\n\n"
+                        yield f"data: {json.dumps({'type': 'tool', 'content': '📍 正在规划景点和行程...'}, ensure_ascii=False)}\n\n"
                     elif "final" in name.lower():
-                        yield f"data: {json.dumps({'type': 'status', 'content': '✈️ 正在生成最终旅行计划...'}, ensure_ascii=False)}\n\n"
+                        yield f"data: {json.dumps({'type': 'tool', 'content': '✈️ 正在生成最终旅行计划...'}, ensure_ascii=False)}\n\n"
 
                 # 节点完成事件 - 输出阶段性结果
                 elif kind == "on_chain_end":
