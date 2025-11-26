@@ -1,9 +1,8 @@
 # travel-agent
     LangGraph + Hierarchical Agent + FastAPI + SSE + VUE3
-    top supervisor                 ---> final plan
-      -> hotel team(parallel run)
-        -> searcher 
-        -> evaluator
+    top supervisor(parallel run) ---> final plan
+      -> hotel team
+        -> searcher -> evaluator
       -> itinerary team
     
     
