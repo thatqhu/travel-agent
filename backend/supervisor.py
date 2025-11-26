@@ -27,21 +27,17 @@ itinerary_searcher = create_agent(
     llm
 )
 
-class Router(TypedDict):
-    next: Literal["hotel_team", "itinerary_team", "final_plan", "FINISH"]
-
 def call_hotel_team(state: TravelState) -> Command[Literal["supervisor"]]:
     response = hotel_graph.invoke({"messages": state["messages"]})
     return Command(
         update={
             "messages": [
                 HumanMessage(
-                    content=f"[酒店团队完成]\n{response['messages'][-1].content}",
+                    content=f"\n**酒店团队完成**\n{response['messages'][-1].content}",
                     name="hotel_team"
                 )
             ]
-        },
-        goto="supervisor"
+        }
     )
 
 def call_itinerary_team(state: TravelState) -> Command[Literal["supervisor"]]:
@@ -56,12 +52,11 @@ def call_itinerary_team(state: TravelState) -> Command[Literal["supervisor"]]:
         update={
             "messages": [
                 HumanMessage(
-                    content=f"[行程团队完成]\n{response['messages'][-1].content}\n",
+                    content=f"\n**行程团队完成**\n{response['messages'][-1].content}\n",
                     name="itinerary_team"
                 )
             ]
-        },
-        goto="supervisor"
+        }
     )
 
 def generate_final_plan(state: TravelState) -> Command[Literal["__end__"]]:
@@ -76,29 +71,32 @@ def generate_final_plan(state: TravelState) -> Command[Literal["__end__"]]:
         update={
             "messages": [
                 HumanMessage(
-                    content=f"[最终旅行计划]\n{response.content}\n",
+                    content=f"\n----最终旅行计划----\n{response.content}\n",
                     name="final_planner"
                 )
             ]
-        },
-        goto="__end__"
+        }
     )
 
 def top_supervisor(state: TravelState) -> Command:
-    messages = [
-        {"role": "system", "content":
-         "你是旅行规划总监。协调 hotel_team(酒店搜索) 和 itinerary_team(行程规划)。"
-         "工作流程：1. 先让hotel_team搜索酒店. 2. 然后让itinerary_team规划行程. "
-         "3. 最后调用final_plan整合生成完整计划. 4. 完整计划生成前,返回json格式数据, 其中 next 字段指向下步操作 5. 返回FINISH结束。"},
-    ] + state["messages"]
+    # Simple logic: If no team has worked yet, start both.
+    # In a real agent, you might use llm to check state to see if they are ALL done.
+    # Now, for testing purposes, we assume they can get the response in one go.
+    # Here we assume a linear flow: Start -> (Hotel + Itinerary) -> Final
 
-    response = llm.with_structured_output(Router).invoke(messages)
-    goto = response["next"]
+    last_message = state["messages"][-1]
 
-    if goto == "FINISH":
-        goto = "__end__"
+    # If this is the first turn or user input, trigger parallel teams
+    if not isinstance(last_message, HumanMessage) or last_message.name not in ["hotel_team", "itinerary_team"]:
+         return Command(
+             goto=["hotel_team", "itinerary_team"]
+         )
 
-    return Command(goto=goto, update={"next": goto})
+    # Note: With the static edges we will add below, control won't actually
+    # return to supervisor until final_plan is done (if we wire it that way),
+    # or we can let final_plan go to END directly.
+
+    return Command(goto="__end__")
 
 # 构建顶层图
 travel_builder = StateGraph(TravelState)
@@ -106,5 +104,15 @@ travel_builder.add_node("supervisor", top_supervisor)
 travel_builder.add_node("hotel_team", call_hotel_team)
 travel_builder.add_node("itinerary_team", call_itinerary_team)
 travel_builder.add_node("final_plan", generate_final_plan)
+
+# Start at supervisor
 travel_builder.add_edge(START, "supervisor")
+
+# Synchronization Run:
+# This tells LangGraph: "Wait for BOTH hotel_team AND itinerary_team to finish, then run final_plan"
+travel_builder.add_edge(["hotel_team", "itinerary_team"], "final_plan")
+
+# End after plan
+travel_builder.add_edge("final_plan", "__end__")
+
 travel_graph = travel_builder.compile()

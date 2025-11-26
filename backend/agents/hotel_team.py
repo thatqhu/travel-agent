@@ -83,6 +83,9 @@ def hotel_supervisor(state: HotelState) -> Command:
     )
     messages = [{"role": "system", "content": system_prompt}] + state["messages"]
 
+    # here we do a check to make sure all tasks are completed
+    # if not, we route to the appropriate node.
+    # NOTE: here should be retry checks as it may loop infinitely
     response = llm.with_structured_output(Router).invoke(messages)
     goto = response["next"]
 
