@@ -28,10 +28,10 @@ const sendMessage = async () => {
       chatHistory.value[aiMsgIndex].content += data.content
     } else if (data.type === 'tool') {
       // 可选：显示工具调用状态
-      chatHistory.value[aiMsgIndex].content += `\n[System: ${data.content}]\n`
+      chatHistory.value[aiMsgIndex].content += `\n[${data.content}]\n\n`
     }else if (data.type === 'done') {
       // 可选：显示工具调用状态
-      chatHistory.value[aiMsgIndex].content += `\n[System: ${data.content}]\n`
+      chatHistory.value[aiMsgIndex].content += `\n[${data.content}]\n\n`
       eventSource.close()
       isProcessing.value = false
       return
@@ -56,7 +56,7 @@ const sendMessage = async () => {
       </div>
     </div>
     <div class="input-area">
-      <input v-model="inputMsg" @keyup.enter="sendMessage" :disabled="isProcessing" placeholder="帮我定去东京的酒店并安排行程..." />
+      <input v-model="inputMsg" @keyup.enter="sendMessage" :disabled="isProcessing" placeholder="请直接输入地点,我将为你安排行程..." />
       <button @click="sendMessage" :disabled="isProcessing">发送</button>
     </div>
   </div>

@@ -40,11 +40,11 @@ async def chat_stream(message: str):
                 elif kind == "on_chain_start":
                     name = event.get("name", "")
                     if "hotel" in name.lower():
-                        yield f"data: {json.dumps({'type': 'tool', 'content': '🏨 正在搜索和评估酒店...'}, ensure_ascii=False)}\n\n"
+                        yield f"data: {json.dumps({'type': 'tool', 'content': '正在搜索和评估酒店..'}, ensure_ascii=False)}\n\n"
                     elif "itinerary" in name.lower() or "attraction" in name.lower():
-                        yield f"data: {json.dumps({'type': 'tool', 'content': '📍 正在规划景点和行程...'}, ensure_ascii=False)}\n\n"
+                        yield f"data: {json.dumps({'type': 'tool', 'content': '正在规划景点和行程...'}, ensure_ascii=False)}\n\n"
                     elif "final" in name.lower():
-                        yield f"data: {json.dumps({'type': 'tool', 'content': '✈️ 正在生成最终旅行计划...'}, ensure_ascii=False)}\n\n"
+                        yield f"data: {json.dumps({'type': 'tool', 'content': '正在生成最终旅行计划...'}, ensure_ascii=False)}\n\n"
 
                 # 节点完成事件 - 输出阶段性结果
                 elif kind == "on_chain_end":

@@ -1,11 +1,12 @@
 import os
 from typing import Literal
 from pydantic import SecretStr
+from typing_extensions import TypedDict
 from langchain_openai import ChatOpenAI
 from langgraph.graph import StateGraph, MessagesState, START
 from langgraph.types import Command
 from langchain.agents import create_agent
-from langchain_core.messages import HumanMessage, AIMessage
+from langchain_core.messages import HumanMessage
 from tools.hotel_tool import search_hotels, evaluate_hotels
 
 api_key_val = os.environ.get("DASHSCOPE_API_KEY")
@@ -18,20 +19,23 @@ llm = ChatOpenAI(
     temperature=0.5
 )
 
-# 酒店搜索代理
 hotel_searcher = create_agent(
     llm,
     tools=[search_hotels]
 )
 
-# 酒店搜索代理
 hotel_evaluator = create_agent(
     llm,
     tools=[evaluate_hotels]
 )
 
+# subgraph state
 class HotelState(MessagesState):
     next: str
+
+# internal router
+class Router(TypedDict):
+    next: Literal["searcher", "evaluator", "FINISH"]
 
 def searcher_node(state: HotelState) -> Command[Literal["supervisor"]]:
     system_prompt = (
@@ -61,7 +65,7 @@ def evaluator_node(state: HotelState) -> Command[Literal["supervisor"]]:
         update={
             "messages": [
                 HumanMessage(
-                    content=f"[酒店评估] {result['messages'][-1].content}",
+                    content=f"酒店评估: {result['messages'][-1].content}\n",
                     name="hotel_evaluator"
                 )
             ]
@@ -70,18 +74,12 @@ def evaluator_node(state: HotelState) -> Command[Literal["supervisor"]]:
     )
 
 def hotel_supervisor(state: HotelState) -> Command:
-    """酒店团队监督者"""
-    from typing_extensions import TypedDict
-
-    class Router(TypedDict):
-        next: Literal["searcher", "evaluator", "FINISH"]
-
     system_prompt = (
         "你是酒店团队主管,"
         "规则："
-        "1. 是否使用 searcher 搜索过酒店?"
-        "2. 是否使用 evaluator 评估过酒店?"
-        "如果都完成了,返回 FINISH 结束,注意,结束前返回json格式数据, 示例: {'next': 'searcher'}."
+        "1. 是否使用 searcher 搜索过酒店? 没有则返回 searcher"
+        "2. 是否使用 evaluator 评估过酒店? 没有则返回 evaluator"
+        "如果都完成了,返回 FINISH 结束,注意,结束前返回json格式数据, 其中字段 next 字段表示下一步要做什么, 它的值只能是 searcher 或者 evaluator, 示例: {'next': 'searcher'}."
     )
     messages = [{"role": "system", "content": system_prompt}] + state["messages"]
 
@@ -91,9 +89,8 @@ def hotel_supervisor(state: HotelState) -> Command:
     if goto == "FINISH":
         goto = "__end__"
 
-    return Command(goto=goto, update={"next": goto})
+    return Command(goto=goto)
 
-# 构建酒店团队图
 hotel_builder = StateGraph(HotelState)
 hotel_builder.add_node("supervisor", hotel_supervisor)
 hotel_builder.add_node("searcher", searcher_node)
