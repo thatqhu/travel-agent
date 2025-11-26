@@ -8,29 +8,24 @@ const isProcessing = ref(false)
 const sendMessage = async () => {
   if (!inputMsg.value) return
 
-  // 添加用户消息
   chatHistory.value.push({ role: 'user', content: inputMsg.value })
   const userMsg = inputMsg.value
   inputMsg.value = ''
   isProcessing.value = true
 
-  // 创建一个空的 AI 回复框
   const aiMsgIndex = chatHistory.value.push({ role: 'ai', content: '' }) - 1
 
-  // 建立 SSE 连接
+  // Setup SSE connection
   const eventSource = new EventSource(`http://localhost:8000/chat/stream?message=${encodeURIComponent(userMsg)}`)
 
   eventSource.onmessage = (event) => {
     const data = JSON.parse(event.data)
 
     if (data.type === 'token') {
-      // 简单的文本累加
       chatHistory.value[aiMsgIndex].content += data.content
     } else if (data.type === 'tool') {
-      // 可选：显示工具调用状态
       chatHistory.value[aiMsgIndex].content += `\n[${data.content}]\n\n`
     }else if (data.type === 'done') {
-      // 可选：显示工具调用状态
       chatHistory.value[aiMsgIndex].content += `\n[${data.content}]\n\n`
       eventSource.close()
       isProcessing.value = false
