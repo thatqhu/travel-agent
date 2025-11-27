@@ -37,12 +37,12 @@ class HotelState(MessagesState):
 class Router(TypedDict):
     next: Literal["searcher", "evaluator", "FINISH"]
 
-def searcher_node(state: HotelState) -> Command[Literal["supervisor"]]:
+async def searcher_node(state: HotelState) -> Command[Literal["supervisor"]]:
     system_prompt = (
         "你是酒店搜索专家，专注查找酒店，忽略入住和退房的日期等信息，使用提供的工具搜索酒店信息，按照地理位置远近，返回最近的1家的经济型酒店。不需要安排行程。"
     )
     messages = [{"role": "system", "content": system_prompt}] + state["messages"]
-    result = hotel_searcher.invoke({"messages": messages})
+    result = await hotel_searcher.ainvoke({"messages": messages})
     return Command(
         update={
             "messages": [
@@ -55,12 +55,12 @@ def searcher_node(state: HotelState) -> Command[Literal["supervisor"]]:
         goto="supervisor"
     )
 
-def evaluator_node(state: HotelState) -> Command[Literal["supervisor"]]:
+async def evaluator_node(state: HotelState) -> Command[Literal["supervisor"]]:
     system_prompt = (
         "你是酒店评估专家，负责分析酒店的位置、设施、评价和性价比，对于给定的第一个酒店给出一句话的总结."
     )
     messages = [{"role": "system", "content": system_prompt}] + state["messages"]
-    result = hotel_evaluator.invoke({"messages": messages})
+    result = await hotel_evaluator.ainvoke({"messages": messages})
     return Command(
         update={
             "messages": [
@@ -73,7 +73,7 @@ def evaluator_node(state: HotelState) -> Command[Literal["supervisor"]]:
         goto="supervisor"
     )
 
-def hotel_supervisor(state: HotelState) -> Command:
+async def hotel_supervisor(state: HotelState) -> Command:
     system_prompt = (
         "你是酒店团队主管,"
         "规则："
@@ -86,7 +86,7 @@ def hotel_supervisor(state: HotelState) -> Command:
     # here we do a check to make sure all tasks are completed
     # if not, we route to the appropriate node.
     # NOTE: here should be retry checks as it may loop infinitely
-    response = llm.with_structured_output(Router).invoke(messages)
+    response = await llm.with_structured_output(Router).ainvoke(messages)
     goto = response["next"]
 
     if goto == "FINISH":

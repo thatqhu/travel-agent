@@ -30,8 +30,8 @@ itinerary_searcher = create_agent(
     tools=[tool]
 )
 
-def call_hotel_team(state: TravelState) -> Command[Literal["supervisor"]]:
-    response = hotel_graph.invoke({"messages": state["messages"]})
+async def call_hotel_team(state: TravelState) -> Command[Literal["supervisor"]]:
+    response = await hotel_graph.ainvoke({"messages": state["messages"]})
     return Command(
         update={
             "messages": [
@@ -43,13 +43,13 @@ def call_hotel_team(state: TravelState) -> Command[Literal["supervisor"]]:
         }
     )
 
-def call_itinerary_team(state: TravelState) -> Command[Literal["supervisor"]]:
+async def call_itinerary_team(state: TravelState) -> Command[Literal["supervisor"]]:
     # does not use subgraph here, just a simple call to LLM
     system_prompt = (
         "你是行程设计师，负责设计大概的每日行程,使用搜索工具查询最新的旅游攻略信息,用专业且友好的语气, 简短总结一下,超过20个字."
     )
     messages = [{"role": "system", "content": system_prompt}] + state["messages"]
-    response = itinerary_searcher.invoke({"messages": messages})
+    response = await itinerary_searcher.ainvoke({"messages": messages})
 
     return Command(
         update={
@@ -62,13 +62,13 @@ def call_itinerary_team(state: TravelState) -> Command[Literal["supervisor"]]:
         }
     )
 
-def generate_final_plan(state: TravelState) -> Command[Literal["__end__"]]:
+async def generate_final_plan(state: TravelState) -> Command[Literal["__end__"]]:
     messages = [
         {"role": "system", "content":
          "你是专业的旅行顾问。根据酒店团队和行程团队的工作结果，整合生成一份简短的旅行计划。用清晰的格式和友好的语气呈现, 不超过50个字."},
     ] + state["messages"]
 
-    response = llm.invoke(messages)
+    response = await llm.ainvoke(messages)
 
     return Command(
         update={
@@ -81,7 +81,7 @@ def generate_final_plan(state: TravelState) -> Command[Literal["__end__"]]:
         }
     )
 
-def top_supervisor(state: TravelState) -> Command:
+async def top_supervisor(state: TravelState) -> Command:
     # Simple logic: If no team has worked yet, start both.
     # In a real agent, you might use llm to check state to see if they are ALL done.
     # Now, for testing purposes, we assume they can get the response in one go.
